@@ -3,6 +3,7 @@
 #Date : 27 March 2017
 
 #packages
+import datetime
 import time
 import os
 import sys
@@ -10,6 +11,8 @@ import subprocess
 from threading import Thread
 from time import strftime
 
+blacklist_table=[]
+var_limit=25
 def log_it(logtext):
     term_command('echo %s >> log.txt'%logtext)
 def loadanim():
@@ -57,6 +60,9 @@ def find_ip(os_found):
         loopback_ip=term_command('hostname -I')
     loopback_ip=loopback_ip.split()[0]
     print 'IP Found : %s'%loopback_ip
+    cur_time=strftime("%Y-%m-%d %H:%M:%S")
+    logger='New iteration at : %s' %cur_time + ' on %s' %loopback_ip
+    term_command('echo %s >> log.txt'%logger)
     return loopback_ip
 
 def get_vars():
@@ -85,6 +91,37 @@ def get_vars():
             print 'Invalid choice.'
     print 'Using %s as connection limit'%var_limit
 
+def darth(ip):
+    finder=-1
+    for i in blacklist_table:
+        if ip in i:
+            finder= blacklist_table.index(i)
+    if (finder==-1):
+        print ('%s not in BlackList Table.. Adding it!'%ip)
+        now= datetime.datetime.now()
+        timeout= now + datetime.timedelta(minutes = 15)
+        temparray=[ip,1,1,now]
+        blacklist_table.append(temparray)
+        ban_ip(ip)
+    elif(finder!=-1):
+        print ('%s found in BlackList history. Increasing timeout!'%ip)
+        blacklist_table[finder][1]=1
+        blacklist_table[finder][2]+=1
+        now= datetime.datetime.now()
+        timeout=blacklist_table[finder][3]
+        if timeout < now:
+            timeout=now + datetime.timedelta(minutes = 5*blacklist_table[finder][2])
+        if timeout > now:
+            timeout=timeout + datetime.timedelta(minutes = 5*blacklist_table[finder][2])
+        blacklist_table[finder][3]=timeout
+
+def release_manager():
+    for i in blacklist_table:
+        if i[3] > now:
+            blacklist_table[1]=0
+            Print ("Releasing %s"%i[0])
+            release_ip(i[0])
+
 def check_log():
     #fetches IPs from the log and excludes local IP
     print 'Loading log',
@@ -106,7 +143,7 @@ def check_log():
             print '\tBlacklisting %s' %i
             cur_time=strftime("%Y-%m-%d %H:%M:%S")
             log_it('%s'%cur_time+'\t Blacklisted %s'%i)
-            ban_ip(i)
+            darth(ip)
             term_command('echo %s >> ban_list.txt'%i)
 
 def display_iptable():
@@ -119,7 +156,7 @@ def ban_ip(ip_to_block):
     block_op=term_command('sudo iptables -I INPUT -s %s -j REJECT' %ip_to_block)
     print block_op
 
-def unblock_ip(ip_to_unblock):
+def release_ip(ip_to_unblock):
     unblock_op=term_command('sudo iptables -D INPUT -s %s -j REJECT' %ip_to_unblock)
     print unblock_op
 
@@ -130,15 +167,14 @@ def whitelist_ip(whitelist):
 # def clear_log():
 
 init()
-
 os_found=check_os()
-
 loopback_ip=find_ip(os_found)
-
 get_vars()
-
 display_iptable()
+
 while True:
     check_log()
     time.sleep(3)
     os.system('cls' if os.name == 'nt' else "printf '\033c'")
+    print("Running Release Manager")
+    release_manager()
