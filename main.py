@@ -116,7 +116,9 @@ def darth(ip):
         blacklist_table[finder][3]=timeout
 
 def release_manager():
+    print "Checking if any IPs are ready for release!"
     for i in blacklist_table:
+        print "Checking if %s is ready for release!"
         if i[3] > now:
             blacklist_table[1]=0
             Print ("Releasing %s"%i[0])
